@@ -1,36 +1,35 @@
 <template>
   <div class="container">
-    <div class="d-flex m-2 p-2 justify-content-center">
-      <div class="">
-        <label for="search-box"></label>
-        <input
-          id="search-box"
-          ref="searchInput"
-          type="search"
-          class="form-control search-input m-1 p-1"
-          placeholder="Search..."
-          @change="onChange"
-          @click="onClick"
-        />
-      </div>
+    <div class="d-flex m-3 p-3 justify-content-center">
+      <input
+        id="search-box"
+        ref="searchInput"
+        type="search"
+        class="form-control search-input m-3 p-3"
+        placeholder="Search..."
+        @change="onChange"
+        @click="onClick"
+      />
     </div>
-    <div class="d-flex m-2 p-2 justify-content-center">
-      <div v-if="searchResults">
-        <span class="text-muted m-3 p-3"
-          >{{ searchResults.number_of_results }} results returned in
-          {{ searchResults.processed.time }}
-          {{ searchResults.processed.unit }}</span
-        >
-        <SearchResultComponent
-          v-for="searchResult in searchResults.results"
-          :key="searchResult.url"
-          :search-result="searchResult"
-        >
-        </SearchResultComponent>
-      </div>
-      <div v-if="error" class="text-danger">
-        {{ error }}
-      </div>
+    <div
+      v-if="searchResults"
+      class="d-flex flex-column m-2 p-2 justify-content-center"
+    >
+      <span class="text-muted m-3 p-3"
+        >{{ searchResults.number_of_results }} results returned in
+        {{ searchResults.processed.time }}
+        {{ searchResults.processed.unit }}</span
+      >
+      <SearchResultComponent
+        v-for="searchResult in searchResults.results"
+        :key="searchResult.url"
+        :search-result="searchResult"
+      >
+      </SearchResultComponent>
+    </div>
+
+    <div v-if="error" class="d-flex m-2 p-2 justify-content-center text-danger">
+      {{ error }}
     </div>
   </div>
 </template>
@@ -56,6 +55,7 @@ export default defineComponent({
         const query = searchInput.value.value;
         if (query === "") {
           searchResults.value = null;
+          error.value = null;
         } else {
           try {
             searchResults.value = await store.dispatch(
@@ -96,8 +96,7 @@ export default defineComponent({
 
 <style scoped>
 .search-input {
-  min-width: 40vw;
   min-height: 50px;
-  margin-top: 100px !important;
+  border-radius: 15px;
 }
 </style>

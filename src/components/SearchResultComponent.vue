@@ -1,5 +1,5 @@
 <template>
-  <div class="card m-3 p-3">
+  <div class="card search-card m-3 p-3">
     <div class="card-body">
       <h5 class="card-title">
         <a :href="searchResult.url" target="_blank">{{ searchResult.title }}</a>
@@ -29,4 +29,8 @@ export default defineComponent({
 });
 </script>
 
-<style scoped></style>
+<style scoped>
+.search-card {
+  border-radius: 15px;
+}
+</style>
