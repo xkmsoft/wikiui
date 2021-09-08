@@ -1,11 +1,15 @@
-import { SearchResults } from "@/types";
+import { SearchHistory } from "@/types";
 
 export type State = {
   loading: boolean;
-  searchHistory: Map<string, SearchResults>;
+  query: string;
+  currentPage: number;
+  searchHistory: Map<string, SearchHistory>;
 };
 
 export const state: State = {
   loading: false,
-  searchHistory: new Map<string, SearchResults>(),
+  query: "",
+  currentPage: 1,
+  searchHistory: new Map<string, SearchHistory>(),
 };

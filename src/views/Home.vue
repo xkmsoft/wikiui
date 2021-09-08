@@ -12,7 +12,7 @@
       />
     </div>
     <div
-      v-if="searchResults"
+      v-if="searchResults && results.length"
       class="d-flex flex-column m-2 p-2 justify-content-center"
     >
       <span class="text-muted m-3 p-3"
@@ -21,11 +21,21 @@
         {{ searchResults.processed.unit }}</span
       >
       <SearchResultComponent
-        v-for="searchResult in searchResults.results"
+        v-for="searchResult in results"
         :key="searchResult.url"
         :search-result="searchResult"
       >
       </SearchResultComponent>
+      <div
+        v-show="hasNextPage"
+        ref="lazyLoader"
+        class="card search-card m-3 p-3"
+      >
+        <p class="card-text">Loading more results...</p>
+      </div>
+      <div v-show="!hasNextPage" class="card search-card m-3 p-3">
+        <p class="card-text">End of the results</p>
+      </div>
     </div>
 
     <div v-if="error" class="d-flex m-2 p-2 justify-content-center text-danger">
@@ -35,11 +45,19 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, nextTick } from "vue";
+import {
+  computed,
+  defineComponent,
+  nextTick,
+  onBeforeMount,
+  onMounted,
+  ref,
+} from "vue";
 import { useStore } from "@/store";
-import { SearchResults } from "@/types";
+import { QueryPayload } from "@/types";
 import { ActionTypes } from "@/store/actions";
 import SearchResultComponent from "@/components/SearchResultComponent.vue";
+import { MutationType } from "@/store/mutations";
 
 export default defineComponent({
   name: "Home",
@@ -47,21 +65,77 @@ export default defineComponent({
   setup() {
     const store = useStore();
     const searchInput = ref<null | HTMLInputElement>(null);
-    const searchResults = ref<null | SearchResults>(null);
     const error = ref<null | string>(null);
+    const observer = ref<IntersectionObserver | null>(null);
+    const lazyLoader = ref<Element | null>(null);
+    const searchResults = computed(() => {
+      return store.getters.getCurrentSearch;
+    });
+    const currentPage = computed(() => {
+      return store.state.currentPage;
+    });
+    const hasNextPage = computed(() => {
+      return store.getters.hasNextPage;
+    });
+    const results = computed(() => {
+      return store.getters.getSearchResults;
+    });
+
+    onMounted(() => {
+      window.addEventListener("scroll", scrollListener);
+      observer.value = new IntersectionObserver(infiniteScroll);
+      observe();
+    });
+
+    onBeforeMount(() => {
+      window.removeEventListener("scroll", scrollListener);
+      if (observer.value) {
+        observer.value.disconnect();
+      }
+    });
+
+    const observe = () => {
+      if (observer.value && lazyLoader.value) {
+        observer.value.observe(lazyLoader.value);
+      }
+    };
+
+    const scrollListener = () => {
+      observe();
+    };
+
+    const infiniteScroll = async (entries: IntersectionObserverEntry[]) => {
+      if (entries.length) {
+        const entry: IntersectionObserverEntry = entries[0];
+        if (entry.isIntersecting && searchInput.value) {
+          const query = searchInput.value.value;
+          try {
+            const payload: QueryPayload = {
+              query: query,
+              page: currentPage.value + 1,
+            };
+            await store.dispatch(ActionTypes.MakeQuery, payload);
+            observe();
+            error.value = null;
+          } catch (e) {
+            error.value = e;
+          }
+        }
+      }
+    };
 
     const onChange = async () => {
       if (searchInput.value) {
         const query = searchInput.value.value;
         if (query === "") {
-          searchResults.value = null;
+          store.commit(MutationType.SetQuery, query);
+          store.commit(MutationType.SetCurrentPage, 1);
           error.value = null;
         } else {
           try {
-            searchResults.value = await store.dispatch(
-              ActionTypes.MakeQuery,
-              query
-            );
+            const payload: QueryPayload = { query: query, page: 1 };
+            await store.dispatch(ActionTypes.MakeQuery, payload);
+            observe();
             error.value = null;
           } catch (e) {
             error.value = e;
@@ -75,7 +149,8 @@ export default defineComponent({
         setTimeout(() => {
           if (searchInput.value) {
             if (searchInput.value.value === "") {
-              searchResults.value = null;
+              store.commit(MutationType.SetQuery, "");
+              store.commit(MutationType.SetCurrentPage, 1);
               error.value = null;
             }
           }
@@ -86,9 +161,13 @@ export default defineComponent({
     return {
       searchInput,
       searchResults,
+      results,
       error,
       onChange,
       onClick,
+      hasNextPage,
+      lazyLoader,
+      observer,
     };
   },
 });

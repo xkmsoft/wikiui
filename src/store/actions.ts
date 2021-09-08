@@ -3,8 +3,7 @@ import { Mutations, MutationType } from "./mutations";
 import { State } from "./state";
 import { store } from "@/store/index";
 import { useApi } from "@/composables/api";
-import { SearchPair, SearchResults } from "@/types";
-import { getters } from "@/store/getters";
+import { PaginatedSearchPair, QueryPayload, SearchPair } from "@/types";
 
 export enum ActionTypes {
   MakeQuery = "MAKE_QUERY",
@@ -20,26 +19,42 @@ type ActionAugments = Omit<ActionContext<State, State>, "commit"> & {
 export type Actions = {
   [ActionTypes.MakeQuery](
     context: ActionAugments,
-    query: string
-  ): Promise<SearchResults>;
+    payload: QueryPayload
+  ): Promise<void>;
 };
 
 export const actions: ActionTree<State, State> & Actions = {
   async [ActionTypes.MakeQuery](
     { commit },
-    query: string
-  ): Promise<SearchResults> {
-    const results = getters.getSearchResults(store.state, query);
-    if (results === undefined) {
-      const apiResults = await useApi().makeQuery(query);
+    payload: QueryPayload
+  ): Promise<void> {
+    commit(MutationType.SetQuery, payload.query);
+    commit(MutationType.SetCurrentPage, payload.page);
+    const currentSearch = store.state.searchHistory.get(store.state.query);
+    if (currentSearch === undefined) {
+      const apiResults = await useApi().makeQuery(payload.query, payload.page);
       const searchPair: SearchPair = {
-        query: query,
+        query: payload.query,
+        page: payload.page,
         results: apiResults,
       };
       commit(MutationType.AddSearchToHistory, searchPair);
-      return apiResults;
     } else {
-      return results;
+      if (payload.page > 1) {
+        const apiResults = await useApi().makeQuery(
+          payload.query,
+          payload.page
+        );
+        const paginatedSearchPair: PaginatedSearchPair = {
+          query: payload.query,
+          page: payload.page,
+          results: apiResults.results,
+        };
+        commit(MutationType.AddPaginatedHistory, paginatedSearchPair);
+      } else {
+        const lastPage = currentSearch.results.size;
+        commit(MutationType.SetCurrentPage, lastPage);
+      }
     }
   },
 };
